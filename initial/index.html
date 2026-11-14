@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exterior Car Parking Door & Gate Colour Visualizer</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Smooth SVG and UI transitions for live colour changes */
+        .door-transition {
+            transition: fill 0.35s ease, stroke 0.35s ease, background-color 0.35s ease, border-color 0.35s ease;
+        }
+        .wood-grain-overlay {
+            background-image: repeating-linear-gradient(
+                90deg,
+                rgba(0, 0, 0, 0.06) 0px,
+                rgba(0, 0, 0, 0.06) 2px,
+                transparent 2px,
+                transparent 8px
+            );
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans antialiased selection:bg-slate-900 selection:text-white min-h-screen flex flex-col">
+
+    <!-- Sticky Header -->
+    <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div class="flex items-center gap-3">
+                <div class="h-9 w-9 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-xs shrink-0">
+                    <!-- Garage / Gate Icon -->
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10l9-7 9 7v11a1 1 0 01-1 1h-5v-7H9v7H4a1 1 0 01-1-1V10z" />
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-lg sm:text-xl font-bold tracking-tight text-slate-900">Exterior Parking Door & Gate Colour Visualizer</h1>
+                        <span id="visibleCountBadge" class="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                            18 Combinations
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-500">Test door colours on your house wall, switch gate styles, and compare dust & heat durability ratings.</p>
+                </div>
+            </div>
+
+            <!-- Quick Search -->
+            <div class="relative w-full sm:w-64">
+                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="Search colour, teak, grey, #HEX..."
+                    class="block w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-8 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                />
+                <button
+                    id="clearSearchBtn"
+                    type="button"
+                    aria-label="Clear search"
+                    class="hidden absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+
+        <!-- Interactive Live Exterior House & Parking Door Visualizer Panel -->
+        <section aria-label="Live Parking Door Visualizer" class="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-12">
+
+                <!-- Left / Top: Architectural Illustration Canvas -->
+                <div class="lg:col-span-7 relative flex flex-col justify-between min-h-[340px] sm:min-h-[410px] overflow-hidden border-b lg:border-b-0 lg:border-r border-slate-200">
+                    <!-- Sky & Sun Backdrop -->
+                    <div id="skyBackdrop" class="absolute inset-0 bg-gradient-to-b from-sky-200 via-sky-100 to-amber-50/60 transition-colors duration-500"></div>
+
+                    <!-- Top Overlay Pill: Active Palette Info -->
+                    <div class="relative z-10 p-4 sm:p-5 flex flex-wrap items-center justify-between gap-2">
+                        <div class="inline-flex items-center gap-2 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-200/80 shadow-xs">
+                            <span id="activeDoorDot" class="h-3.5 w-3.5 rounded-full border border-black/20"></span>
+                            <span id="activeFrameDot" class="h-3.5 w-3.5 rounded-full border border-black/20 -ml-1.5"></span>
+                            <span id="activeComboTitle" class="text-xs sm:text-sm font-bold text-slate-900">Charcoal Grey & Crisp White</span>
+                            <span id="activeComboRating" class="text-xs font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200">4.96 ★</span>
+                        </div>
+
+                        <!-- Day / Evening Lighting Toggle -->
+                        <button
+                            id="lightingToggleBtn"
+                            type="button"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 shadow-xs backdrop-blur-md transition-colors cursor-pointer"
+                        >
+                            <span id="lightingIcon">☀️</span>
+                            <span id="lightingText">Daylight View</span>
+                        </button>
+                    </div>
+
+                    <!-- Center SVG House Facade & Car Parking Door Illustration -->
+                    <div class="relative z-10 flex-1 flex items-end justify-center px-3 sm:px-6 pt-2">
+                        <svg id="houseSceneSvg" viewBox="0 0 720 330" class="w-full max-w-2xl h-auto drop-shadow-md" role="img" aria-label="Interactive Exterior House and Parking Door Preview">
+                            <defs>
+                                <!-- Subtle Wood Grain Pattern for Wood-finish doors -->
+                                <pattern id="woodPattern" width="24" height="12" patternUnits="userSpaceOnUse">
+                                    <path d="M0 3 Q 6 1, 12 3 T 24 3" fill="none" stroke="rgba(0,0,0,0.12)" stroke-width="1.2"/>
+                                    <path d="M0 9 Q 6 11, 12 9 T 24 9" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+                                </pattern>
+                                <!-- Driveway Gradient -->
+                                <linearGradient id="drivewayGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="#94A3B8"/>
+                                    <stop offset="100%" stop-color="#64748B"/>
+                                </linearGradient>
+                                <!-- Warm Sconce Glow -->
+                                <radialGradient id="sconceGlow" cx="50%" cy="50%" r="50%">
+                                    <stop offset="0%" stop-color="#FDE047" stop-opacity="0.75"/>
+                                    <stop offset="100%" stop-color="#FDE047" stop-opacity="0"/>
+                                </radialGradient>
+                            </defs>
+
+                            <!-- Ground / Landscaping Bushes -->
+                            <circle cx="75" cy="268" r="28" fill="#4D7C0F" />
+                            <circle cx="102" cy="274" r="22" fill="#65A30D" />
+                            <circle cx="635" cy="270" r="26" fill="#4D7C0F" />
+                            <circle cx="608" cy="275" r="20" fill="#3F6212" />
+
+                            <!-- Roofline / Modern Parapet Overhang -->
+                            <polygon points="85,78 360,24 635,78" fill="#334155" />
+                            <rect x="80" y="76" width="560" height="12" rx="3" fill="#1E293B" />
+
+                            <!-- Main Exterior House Wall (User Customizable Colour) -->
+                            <rect id="svgHouseWall" x="95" y="88" width="530" height="192" fill="#F5F2EB" class="door-transition" />
+                            <!-- Subtle Wall Shadow under Roof -->
+                            <rect x="95" y="88" width="530" height="10" fill="rgba(0,0,0,0.08)" />
+
+                            <!-- Side Pedestrian Entry / Window Accent on Left -->
+                            <rect x="122" y="122" width="68" height="92" rx="4" fill="#1E293B" />
+                            <rect x="127" y="127" width="58" height="82" rx="2" fill="#BAE6FD" opacity="0.85" />
+                            <line x1="156" y1="127" x2="156" y2="209" stroke="#1E293B" stroke-width="3" />
+                            <line x1="127" y1="168" x2="185" y2="168" stroke="#1E293B" stroke-width="3" />
+
+                            <!-- Exterior Wall Sconce Lights (Glow intensifies in Evening mode) -->
+                            <circle id="svgGlowLeft" cx="222" cy="148" r="34" fill="url(#sconceGlow)" opacity="0.15" />
+                            <circle id="svgGlowRight" cx="566" cy="148" r="34" fill="url(#sconceGlow)" opacity="0.15" />
+                            <rect x="217" y="138" width="10" height="20" rx="2" fill="#1E293B" />
+                            <rect x="219" y="141" width="6" height="14" rx="1" fill="#FEF08A" />
+                            <rect x="561" y="138" width="10" height="20" rx="2" fill="#1E293B" />
+                            <rect x="563" y="141" width="6" height="14" rx="1" fill="#FEF08A" />
+
+                            <!-- Outer Parking Door Frame / Trim (Accent Colour) -->
+                            <rect id="svgDoorFrame" x="242" y="112" width="304" height="168" rx="4" fill="#F8F9FA" stroke="rgba(0,0,0,0.18)" stroke-width="1.5" class="door-transition" />
+
+                            <!-- Inner Door Opening Shadow -->
+                            <rect x="256" y="125" width="276" height="155" fill="#0F172A" />
+
+                            <!-- STYLE 1: Sectional Garage Door -->
+                            <g id="doorStyleSectional">
+                                <rect id="svgSectionalBody" x="258" y="127" width="272" height="153" fill="#36454F" class="door-transition" />
+                                <rect id="svgSectionalWood" x="258" y="127" width="272" height="153" fill="url(#woodPattern)" opacity="0" />
+                                <!-- Horizontal Panel Seams -->
+                                <line x1="258" y1="165" x2="530" y2="165" stroke="rgba(0,0,0,0.32)" stroke-width="2" />
+                                <line x1="258" y1="203" x2="530" y2="203" stroke="rgba(0,0,0,0.32)" stroke-width="2" />
+                                <line x1="258" y1="241" x2="530" y2="241" stroke="rgba(0,0,0,0.32)" stroke-width="2" />
+                                <!-- Recessed Panel Rectangles -->
+                                <g stroke="rgba(255,255,255,0.12)" stroke-width="1.2" fill="none">
+                                    <rect x="272" y="134" width="114" height="24" rx="2" />
+                                    <rect x="402" y="134" width="114" height="24" rx="2" />
+                                    <rect x="272" y="172" width="114" height="24" rx="2" />
+                                    <rect x="402" y="172" width="114" height="24" rx="2" />
+                                    <rect x="272" y="210" width="114" height="24" rx="2" />
+                                    <rect x="402" y="210" width="114" height="24" rx="2" />
+                                    <rect x="272" y="248" width="114" height="24" rx="2" />
+                                    <rect x="402" y="248" width="114" height="24" rx="2" />
+                                </g>
+                                <!-- Center Handle -->
+                                <rect id="svgSectionalHandle" x="386" y="218" width="16" height="5" rx="2" fill="#F8F9FA" class="door-transition" />
+                            </g>
+
+                            <!-- STYLE 2: Modern Slatted Swing / Sliding Gate -->
+                            <g id="doorStyleSlatted" class="hidden">
+                                <!-- Metal Frame Perimeter (Accent Colour) -->
+                                <rect id="svgGatePerimeter" x="258" y="127" width="272" height="153" fill="none" stroke="#F8F9FA" stroke-width="6" class="door-transition" />
+                                <!-- Horizontal Slats (Door Colour) -->
+                                <g id="svgSlatsGroup" fill="#36454F" class="door-transition">
+                                    <rect x="262" y="132" width="264" height="13" rx="1" />
+                                    <rect x="262" y="149" width="264" height="13" rx="1" />
+                                    <rect x="262" y="166" width="264" height="13" rx="1" />
+                                    <rect x="262" y="183" width="264" height="13" rx="1" />
+                                    <rect x="262" y="200" width="264" height="13" rx="1" />
+                                    <rect x="262" y="217" width="264" height="13" rx="1" />
+                                    <rect x="262" y="234" width="264" height="13" rx="1" />
+                                    <rect x="262" y="251" width="264" height="13" rx="1" />
+                                    <rect x="262" y="268" width="264" height="10" rx="1" />
+                                </g>
+                                <!-- Wood Overlay on Slats when Wood finish active -->
+                                <rect id="svgSlattedWood" x="262" y="132" width="264" height="146" fill="url(#woodPattern)" opacity="0" />
+                                <!-- Center Double-Gate Divider & Vertical Pull Handles -->
+                                <rect x="392" y="127" width="4" height="153" fill="#0F172A" />
+                                <rect id="svgGateHandleLeft" x="382" y="192" width="4" height="28" rx="2" fill="#F8F9FA" class="door-transition" />
+                                <rect id="svgGateHandleRight" x="402" y="192" width="4" height="28" rx="2" fill="#F8F9FA" class="door-transition" />
+                            </g>
+
+                            <!-- STYLE 3: Commercial / Home Rolling Shutter -->
+                            <g id="doorStyleShutter" class="hidden">
+                                <!-- Top Shutter Hood Box (Accent Colour) -->
+                                <rect id="svgShutterBox" x="254" y="123" width="280" height="22" rx="3" fill="#F8F9FA" stroke="rgba(0,0,0,0.2)" stroke-width="1" class="door-transition" />
+                                <!-- Corrugated Shutter Curtain (Door Colour) -->
+                                <rect id="svgShutterBody" x="258" y="145" width="272" height="135" fill="#36454F" class="door-transition" />
+                                <!-- Ribbed Shutter Lines -->
+                                <g stroke="rgba(0,0,0,0.28)" stroke-width="1.5">
+                                    <line x1="258" y1="154" x2="530" y2="154" />
+                                    <line x1="258" y1="163" x2="530" y2="163" />
+                                    <line x1="258" y1="172" x2="530" y2="172" />
+                                    <line x1="258" y1="181" x2="530" y2="181" />
+                                    <line x1="258" y1="190" x2="530" y2="190" />
+                                    <line x1="258" y1="199" x2="530" y2="199" />
+                                    <line x1="258" y1="208" x2="530" y2="208" />
+                                    <line x1="258" y1="217" x2="530" y2="217" />
+                                    <line x1="258" y1="226" x2="530" y2="226" />
+                                    <line x1="258" y1="235" x2="530" y2="235" />
+                                    <line x1="258" y1="244" x2="530" y2="244" />
+                                    <line x1="258" y1="253" x2="530" y2="253" />
+                                    <line x1="258" y1="262" x2="530" y2="262" />
+                                    <line x1="258" y1="271" x2="530" y2="271" />
+                                </g>
+                                <!-- Bottom Lock Bar (Accent Colour) -->
+                                <rect id="svgShutterBottomBar" x="258" y="272" width="272" height="8" fill="#F8F9FA" class="door-transition" />
+                            </g>
+
+                            <!-- Driveway Pavement -->
+                            <polygon points="0,280 720,280 720,330 0,330" fill="url(#drivewayGrad)" />
+                            <line x1="0" y1="280" x2="720" y2="280" stroke="#475569" stroke-width="2" />
+                            <!-- Driveway Expansion Joint Lines -->
+                            <line x1="242" y1="280" x2="180" y2="330" stroke="#475569" stroke-width="1.5" opacity="0.5" />
+                            <line x1="546" y1="280" x2="610" y2="330" stroke="#475569" stroke-width="1.5" opacity="0.5" />
+                        </svg>
+                    </div>
+                </div>
+
+                <!-- Right / Bottom: Interactive Visualizer Controls -->
+                <div class="lg:col-span-5 p-5 sm:p-6 flex flex-col justify-between gap-5 bg-slate-50/60">
+                    <div class="space-y-5">
+                        <!-- Step 1: Select Parking Door Type -->
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                                1. Parking Door / Gate Type
+                            </label>
+                            <div class="grid grid-cols-3 gap-2" id="doorStyleButtons">
+                                <button
+                                    type="button"
+                                    data-style="sectional"
+                                    class="door-style-btn px-2.5 py-2 rounded-xl text-xs font-semibold border border-slate-900 bg-slate-900 text-white shadow-xs transition-all cursor-pointer"
+                                >
+                                    Sectional Door
+                                </button>
+                                <button
+                                    type="button"
+                                    data-style="slatted"
+                                    class="door-style-btn px-2.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+                                >
+                                    Slatted Gate
+                                </button>
+                                <button
+                                    type="button"
+                                    data-style="shutter"
+                                    class="door-style-btn px-2.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+                                >
+                                    Rolling Shutter
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Select Your Exterior House Wall Colour -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                                    2. Your Exterior Wall Colour
+                                </label>
+                                <span id="selectedWallName" class="text-xs font-semibold text-slate-700">Warm Cream</span>
+                            </div>
+                            <div class="grid grid-cols-6 gap-2" id="wallColorSwatches">
+                                <!-- Populated via JS -->
+                            </div>
+                        </div>
+
+                        <!-- Step 3: Active Door & Trim Swatches + Swap Button -->
+                        <div class="bg-white p-3.5 rounded-2xl border border-slate-200/90 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold uppercase tracking-wider text-slate-500">3. Active Door & Trim</span>
+                                <button
+                                    id="swapDoorTrimBtn"
+                                    type="button"
+                                    class="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                                >
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                                    </svg>
+                                    Swap Door & Frame
+                                </button>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2.5">
+                                <button
+                                    id="copyActiveDoorBtn"
+                                    type="button"
+                                    class="flex items-center gap-2.5 p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left transition-colors cursor-pointer"
+                                    title="Click to copy Door HEX"
+                                >
+                                    <span id="previewDoorSwatch" class="h-8 w-8 rounded-lg border border-black/15 shrink-0 shadow-xs"></span>
+                                    <div class="min-w-0">
+                                        <p class="text-[10px] font-bold uppercase text-slate-400">Main Door</p>
+                                        <p id="previewDoorLabel" class="text-xs font-bold text-slate-900 truncate">Charcoal Grey</p>
+                                        <p id="previewDoorHex" class="text-[11px] font-mono text-slate-500">#36454F</p>
+                                    </div>
+                                </button>
+
+                                <button
+                                    id="copyActiveFrameBtn"
+                                    type="button"
+                                    class="flex items-center gap-2.5 p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-left transition-colors cursor-pointer"
+                                    title="Click to copy Frame/Trim HEX"
+                                >
+                                    <span id="previewFrameSwatch" class="h-8 w-8 rounded-lg border border-black/15 shrink-0 shadow-xs"></span>
+                                    <div class="min-w-0">
+                                        <p class="text-[10px] font-bold uppercase text-slate-400">Frame / Trim</p>
+                                        <p id="previewFrameLabel" class="text-xs font-bold text-slate-900 truncate">Crisp White</p>
+                                        <p id="previewFrameHex" class="text-[11px] font-mono text-slate-500">#F8F9FA</p>
+                                    </div>
+                                </button>
+                            </div>
+
+                            <!-- Recommended Paint Finish & Practical Note -->
+                            <div class="pt-2 border-t border-slate-100 flex flex-col gap-1">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-slate-500">Recommended Finish:</span>
+                                    <span id="activeFinishBadge" class="font-semibold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-md">Satin / Semi-Gloss PU</span>
+                                </div>
+                                <p id="activeArchitectTip" class="text-[11px] text-slate-500 leading-relaxed">
+                                    Hides road dust and exhaust marks effortlessly while giving a sharp, modern architectural look.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Copy Full Specification Button -->
+                    <button
+                        id="copyFullSpecBtn"
+                        type="button"
+                        class="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Copy Door & Trim Colour Codes
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filter & Sort Bar for All Exterior Parking Door Combinations -->
+        <section aria-label="Filter Combinations" class="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+            <!-- Material Suitability Tabs -->
+            <div class="flex items-center gap-2 overflow-x-auto no-scrollbar" id="materialFilterTabs">
+                <button type="button" data-material="all" class="mat-tab shrink-0 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-900 text-white cursor-pointer">
+                    All Materials (18)
+                </button>
+                <button type="button" data-material="metal" class="mat-tab shrink-0 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">
+                    Metal / Steel Gates
+                </button>
+                <button type="button" data-material="wood" class="mat-tab shrink-0 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">
+                    Wood / WPC Cladding
+                </button>
+                <button type="button" data-material="shutter" class="mat-tab shrink-0 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer">
+                    Rolling Shutters
+                </button>
+            </div>
+
+            <!-- Sort Dropdown -->
+            <div class="flex items-center gap-2 self-start md:self-auto">
+                <label for="sortSelect" class="text-xs font-semibold text-slate-500 whitespace-nowrap">Rank By:</label>
+                <select
+                    id="sortSelect"
+                    class="rounded-xl border border-slate-200 bg-slate-50 py-2 pl-3 pr-8 text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10 cursor-pointer"
+                >
+                    <option value="rating">Top Overall Rating (★)</option>
+                    <option value="dust">Best Dust & Dirt Resistance</option>
+                    <option value="heat">Best Sun & Heat Resistance</option>
+                </select>
+            </div>
+        </section>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="hidden flex-col items-center justify-center py-16 text-center bg-white rounded-3xl border border-slate-200 px-4">
+            <h3 class="text-base font-bold text-slate-900">No matching parking door colours found</h3>
+            <p class="text-xs sm:text-sm text-slate-500 mt-1">Try clearing your search or selecting "All Materials".</p>
+            <button id="resetFiltersBtn" type="button" class="mt-4 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 cursor-pointer">
+                Reset Filters
+            </button>
+        </div>
+
+        <!-- Palette Cards Grid -->
+        <section aria-label="Parking Door Colour Combinations Grid">
+            <div id="combinationsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <!-- Populated dynamically via JS -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-200 bg-white mt-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+            <p>Exterior Car Parking Door & Garage Gate Colour Guide</p>
+            <p>Click any combination card to preview it live on the house facade above.</p>
+        </div>
+    </footer>
+
+    <!-- Toast Notification -->
+    <div
+        id="toastNotification"
+        role="status"
+        aria-live="polite"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 translate-y-4 transition-all duration-300"
+    >
+        <div class="flex items-center gap-2.5 bg-slate-900 text-white px-4 py-2.5 rounded-2xl shadow-xl border border-slate-700">
+            <span id="toastColorDot" class="h-3.5 w-3.5 rounded-full border border-white/40 shrink-0"></span>
+            <span id="toastMessage" class="text-xs sm:text-sm font-medium">Copied!</span>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Exterior House Wall Colours for testing contrast with the parking door
+         */
+        const WALL_COLOURS = [
+            { name: 'Warm Cream', hex: '#F5F2EB' },
+            { name: 'Crisp White', hex: '#FFFFFF' },
+            { name: 'Sandstone Beige', hex: '#DFD3C3' },
+            { name: 'Light Cement Grey', hex: '#CBD5E1' },
+            { name: 'Terracotta Clay', hex: '#C87D65' },
+            { name: 'Modern Slate', hex: '#475569' }
+        ];
+
+        /**
+         * Curated 18 Exterior Car Parking Door & Gate Colour Combinations
+         * Rated by Overall Curb Appeal, Dust Resistance (1-5), and Heat/UV Resistance (1-5)
+         */
+        const PARKING_DOOR_COMBOS = [
+            {
+                id: 'charcoal-white',
+                name: 'Charcoal Grey & Crisp White',
+                door: { name: 'Charcoal Grey', hex: '#36454F' },
+                frame: { name: 'Crisp White', hex: '#F8F9FA' },
+                rating: 4.96,
+                dustScore: 4.9,
+                heatScore: 4.2,
+                finish: 'Satin / Matte Powder Coat',
+                isWood: false,
+                materials: ['metal', 'shutter'],
+                bestFor: 'Modern, contemporary, or white/cream exteriors',
+                tip: 'Hides road dust and exhaust marks effortlessly while giving a sharp, modern architectural look.'
+            },
+            {
+                id: 'teak-matteblack',
+                name: 'Natural Teak Wood & Matte Black',
+                door: { name: 'Natural Teak', hex: '#8B5A2B' },
+                frame: { name: 'Matte Black', hex: '#1C1C1C' },
+                rating: 4.95,
+                dustScore: 4.6,
+                heatScore: 4.5,
+                finish: 'Exterior UV Wood Stain / WPC',
+                isWood: true,
+                materials: ['wood', 'metal'],
+                bestFor: 'White, cream, beige, or stone-clad facades',
+                tip: 'Adds rich organic warmth and pairs seamlessly if you have a wooden main entrance door.'
+            },
+            {
+                id: 'taupe-offwhite',
+                name: 'Warm Taupe / Greige & Off-White',
+                door: { name: 'Warm Taupe', hex: '#8E8275' },
+                frame: { name: 'Off-White', hex: '#FAF8F5' },
+                rating: 4.91,
+                dustScore: 5.0,
+                heatScore: 4.9,
+                finish: 'Satin Exterior Enamel / PU',
+                isWood: false,
+                materials: ['metal', 'shutter', 'wood'],
+                bestFor: 'Sunny climates, dusty roads & warm beige walls',
+                tip: 'The #1 most forgiving colour against sand, dry dust, and intense afternoon sun glare.'
+            },
+            {
+                id: 'matteblack-brass',
+                name: 'Matte Black & Warm Brass / Gold',
+                door: { name: 'Matte Black', hex: '#1A1A1A' },
+                frame: { name: 'Warm Brass', hex: '#C5A059' },
+                rating: 4.90,
+                dustScore: 4.1,
+                heatScore: 3.6,
+                finish: 'Textured Matte Powder Coat',
+                isWood: false,
+                materials: ['metal'],
+                bestFor: 'Luxury minimalist & industrial-modern homes',
+                tip: 'Use a textured matte finish rather than gloss to prevent fingerprints and harsh sunlight reflections.'
+            },
+            {
+                id: 'walnut-charcoal',
+                name: 'Dark Walnut & Charcoal Frame',
+                door: { name: 'Dark Walnut', hex: '#4E342E' },
+                frame: { name: 'Charcoal', hex: '#2B2D2F' },
+                rating: 4.89,
+                dustScore: 4.5,
+                heatScore: 4.1,
+                finish: 'Satin Wood Grain / WPC Cladding',
+                isWood: true,
+                materials: ['wood', 'metal'],
+                bestFor: 'Slatted sliding gates & contemporary villas',
+                tip: 'Combines the luxury of dark timber slats with a heavy-duty charcoal steel frame.'
+            },
+            {
+                id: 'navy-crispwhite',
+                name: 'Deep Navy Blue & Crisp White',
+                door: { name: 'Deep Navy Blue', hex: '#1B365D' },
+                frame: { name: 'Crisp White', hex: '#FFFFFF' },
+                rating: 4.87,
+                dustScore: 4.3,
+                heatScore: 4.0,
+                finish: 'Semi-Gloss Exterior PU',
+                isWood: false,
+                materials: ['metal', 'wood'],
+                bestFor: 'Classic, coastal, or colonial-style exteriors',
+                tip: 'Delivers timeless elegance and strong curb appeal without feeling as stark as solid black.'
+            },
+            {
+                id: 'sage-warmcream',
+                name: 'Sage Olive Green & Warm Cream',
+                door: { name: 'Sage Olive', hex: '#5F6F52' },
+                frame: { name: 'Warm Cream', hex: '#FAF0E6' },
+                rating: 4.86,
+                dustScore: 4.8,
+                heatScore: 4.7,
+                finish: 'Low-Sheen Satin Finish',
+                isWood: false,
+                materials: ['metal', 'wood', 'shutter'],
+                bestFor: 'Homes with garden landscaping, brick, or stone',
+                tip: 'Blends harmoniously with outdoor plants and hides pollen and light dust remarkably well.'
+            },
+            {
+                id: 'anthracite-silver',
+                name: 'Anthracite Grey & Brushed Silver',
+                door: { name: 'Anthracite Grey', hex: '#293133' },
+                frame: { name: 'Brushed Silver', hex: '#CBD5E1' },
+                rating: 4.85,
+                dustScore: 4.7,
+                heatScore: 4.1,
+                finish: 'Metallic Satin Powder Coat',
+                isWood: false,
+                materials: ['shutter', 'metal'],
+                bestFor: 'Motorized rolling shutters & sleek urban garages',
+                tip: 'Ideal for automated rolling shutters—resists grease marks and looks ultra-clean.'
+            },
+            {
+                id: 'sandstone-bronze',
+                name: 'Sandstone Beige & Dark Bronze',
+                door: { name: 'Sandstone Beige', hex: '#CBB89D' },
+                frame: { name: 'Dark Bronze', hex: '#4A3B32' },
+                rating: 4.84,
+                dustScore: 5.0,
+                heatScore: 5.0,
+                finish: 'Satin Exterior Metal Paint',
+                isWood: false,
+                materials: ['shutter', 'metal'],
+                bestFor: 'Hot, sunny regions & light-coloured facades',
+                tip: 'Reflects solar heat to keep garage interiors cooler while matching dry road dust.'
+            },
+            {
+                id: 'oak-offwhite',
+                name: 'Golden Honey Oak & Off-White',
+                door: { name: 'Honey Oak', hex: '#B57C43' },
+                frame: { name: 'Off-White', hex: '#F8F9FA' },
+                rating: 4.83,
+                dustScore: 4.7,
+                heatScore: 4.6,
+                finish: 'UV-Resistant Satin Wood Finish',
+                isWood: true,
+                materials: ['wood', 'metal'],
+                bestFor: 'Bright, welcoming family homes',
+                tip: 'Lighter wood tones reflect more heat than dark walnut and brighten shaded carports.'
+            },
+            {
+                id: 'bronze-cream',
+                name: 'Architectural Bronze & Cream',
+                door: { name: 'Architectural Bronze', hex: '#4E4138' },
+                frame: { name: 'Soft Cream', hex: '#F5EFE6' },
+                rating: 4.82,
+                dustScore: 4.8,
+                heatScore: 4.3,
+                finish: 'Matte / Satin Anodized Look',
+                isWood: false,
+                materials: ['metal', 'shutter'],
+                bestFor: 'Warm Mediterranean, stucco, or brick houses',
+                tip: 'Softer and warmer than black, bridging brown roof tiles and cream exterior walls.'
+            },
+            {
+                id: 'slate-charcoal',
+                name: 'Slate Blue-Grey & Deep Charcoal',
+                door: { name: 'Slate Blue-Grey', hex: '#536878' },
+                frame: { name: 'Deep Charcoal', hex: '#262B2F' },
+                rating: 4.80,
+                dustScore: 4.6,
+                heatScore: 4.4,
+                finish: 'Satin Exterior Enamel',
+                isWood: false,
+                materials: ['metal', 'shutter', 'wood'],
+                bestFor: 'Cool grey, white, or stone exteriors',
+                tip: 'Adds subtle colour personality while remaining understated and weather-resilient.'
+            },
+            {
+                id: 'forest-tan',
+                name: 'Forest Green & Warm Tan',
+                door: { name: 'Forest Green', hex: '#23422A' },
+                frame: { name: 'Warm Tan', hex: '#D2B48C' },
+                rating: 4.78,
+                dustScore: 4.4,
+                heatScore: 4.1,
+                finish: 'Semi-Gloss Exterior PU',
+                isWood: false,
+                materials: ['metal', 'wood'],
+                bestFor: 'Traditional homes, brick facades & lush gardens',
+                tip: 'A heritage outdoor pairing that looks especially rich next to red brick or natural stone.'
+            },
+            {
+                id: 'pebble-white',
+                name: 'Pebble Grey & Pure White',
+                door: { name: 'Pebble Grey', hex: '#9E9E93' },
+                frame: { name: 'Pure White', hex: '#FFFFFF' },
+                rating: 4.77,
+                dustScore: 4.9,
+                heatScore: 4.9,
+                finish: 'Satin Powder Coat',
+                isWood: false,
+                materials: ['shutter', 'metal'],
+                bestFor: 'Clean, airy coastal or modern suburban exteriors',
+                tip: 'Keeps large rolling shutters looking light and unobtrusive against pale walls.'
+            },
+            {
+                id: 'espresso-sand',
+                name: 'Espresso Brown & Warm Sand',
+                door: { name: 'Espresso Brown', hex: '#3C281E' },
+                frame: { name: 'Warm Sand', hex: '#E3D5CA' },
+                rating: 4.76,
+                dustScore: 4.4,
+                heatScore: 3.9,
+                finish: 'Satin PU / Wood Stain',
+                isWood: false,
+                materials: ['metal', 'wood'],
+                bestFor: 'Beige, cream, or terracotta-accented homes',
+                tip: 'Grounds the facade with deep richness without the starkness of jet black.'
+            },
+            {
+                id: 'terracotta-cream',
+                name: 'Muted Terracotta & Ivory Cream',
+                door: { name: 'Muted Terracotta', hex: '#A85840' },
+                frame: { name: 'Ivory Cream', hex: '#FAF6F0' },
+                rating: 4.74,
+                dustScore: 4.7,
+                heatScore: 4.5,
+                finish: 'Matte Exterior Mineral / PU',
+                isWood: false,
+                materials: ['wood', 'metal'],
+                bestFor: 'Spanish, Mediterranean & earthy stucco homes',
+                tip: 'Echoes clay roof tiles and warm stone pathways for a cohesive exterior palette.'
+            },
+            {
+                id: 'ashwood-black',
+                name: 'Weathered Ash Wood & Black',
+                door: { name: 'Weathered Ash', hex: '#8A8175' },
+                frame: { name: 'Matte Black', hex: '#18181B' },
+                rating: 4.88,
+                dustScore: 4.9,
+                heatScore: 4.7,
+                finish: 'Textured WPC / Driftwood Stain',
+                isWood: true,
+                materials: ['wood', 'metal'],
+                bestFor: 'Ultra-modern slatted gates & grey/white walls',
+                tip: 'Driftwood-grey timber tones never show dust and resist UV greying over time.'
+            },
+            {
+                id: 'ivory-charcoal',
+                name: 'Warm Ivory Door & Charcoal Frame',
+                door: { name: 'Warm Ivory', hex: '#F3EFE6' },
+                frame: { name: 'Charcoal Grey', hex: '#36454F' },
+                rating: 4.75,
+                dustScore: 3.9,
+                heatScore: 5.0,
+                finish: 'Washable Semi-Gloss PU',
+                isWood: false,
+                materials: ['shutter', 'metal'],
+                bestFor: 'South/West-facing garages exposed to intense sun',
+                tip: 'Maximum heat reflection; choose a washable semi-gloss finish so lower splash marks wipe right off.'
+            }
+        ];
+
+        // Application State
+        let state = {
+            selectedComboId: 'charcoal-white',
+            doorColor: { name: 'Charcoal Grey', hex: '#36454F' },
+            frameColor: { name: 'Crisp White', hex: '#F8F9FA' },
+            isWood: false,
+            finish: 'Satin / Matte Powder Coat',
+            tip: 'Hides road dust and exhaust marks effortlessly while giving a sharp, modern architectural look.',
+            rating: 4.96,
+            comboName: 'Charcoal Grey & Crisp White',
+            doorStyle: 'sectional', // 'sectional' | 'slatted' | 'shutter'
+            wallColor: WALL_COLOURS[0], // Warm Cream
+            isEvening: false,
+            materialFilter: 'all',
+            sortBy: 'rating',
+            searchQuery: ''
+        };
+
+        let toastTimer = null;
+
+        // DOM Elements
+        const wallColorSwatchesEl = document.getElementById('wallColorSwatches');
+        const selectedWallNameEl = document.getElementById('selectedWallName');
+        const combinationsGridEl = document.getElementById('combinationsGrid');
+        const visibleCountBadgeEl = document.getElementById('visibleCountBadge');
+        const emptyStateEl = document.getElementById('emptyState');
+        const searchInputEl = document.getElementById('searchInput');
+        const clearSearchBtnEl = document.getElementById('clearSearchBtn');
+        const sortSelectEl = document.getElementById('sortSelect');
+        const resetFiltersBtnEl = document.getElementById('resetFiltersBtn');
+        const lightingToggleBtnEl = document.getElementById('lightingToggleBtn');
+        const skyBackdropEl = document.getElementById('skyBackdrop');
+        const lightingIconEl = document.getElementById('lightingIcon');
+        const lightingTextEl = document.getElementById('lightingText');
+
+        // SVG Elements
+        const svgHouseWallEl = document.getElementById('svgHouseWall');
+        const svgDoorFrameEl = document.getElementById('svgDoorFrame');
+        const svgSectionalBodyEl = document.getElementById('svgSectionalBody');
+        const svgSectionalWoodEl = document.getElementById('svgSectionalWood');
+        const svgSectionalHandleEl = document.getElementById('svgSectionalHandle');
+        const svgGatePerimeterEl = document.getElementById('svgGatePerimeter');
+        const svgSlatsGroupEl = document.getElementById('svgSlatsGroup');
+        const svgSlattedWoodEl = document.getElementById('svgSlattedWood');
+        const svgGateHandleLeftEl = document.getElementById('svgGateHandleLeft');
+        const svgGateHandleRightEl = document.getElementById('svgGateHandleRight');
+        const svgShutterBoxEl = document.getElementById('svgShutterBox');
+        const svgShutterBodyEl = document.getElementById('svgShutterBody');
+        const svgShutterBottomBarEl = document.getElementById('svgShutterBottomBar');
+        const svgGlowLeftEl = document.getElementById('svgGlowLeft');
+        const svgGlowRightEl = document.getElementById('svgGlowRight');
+
+        /**
+         * Copies text to clipboard using document.execCommand('copy') for iframe compatibility.
+         */
+        function copyText(text, label, swatchHex) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.top = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                document.execCommand('copy');
+                showToast(`Copied ${label}: ${text}`, swatchHex);
+            } catch (e) {
+                showToast(`${label}: ${text}`, swatchHex);
+            } finally {
+                document.body.removeChild(ta);
+            }
+        }
+
+        function showToast(msg, hex) {
+            const toastEl = document.getElementById('toastNotification');
+            const dotEl = document.getElementById('toastColorDot');
+            const msgEl = document.getElementById('toastMessage');
+
+            msgEl.textContent = msg;
+            if (hex) {
+                dotEl.style.backgroundColor = hex;
+                dotEl.classList.remove('hidden');
+            } else {
+                dotEl.classList.add('hidden');
+            }
+
+            toastEl.classList.remove('opacity-0', 'translate-y-4');
+            toastEl.classList.add('opacity-100', 'translate-y-0');
+
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                toastEl.classList.remove('opacity-100', 'translate-y-0');
+                toastEl.classList.add('opacity-0', 'translate-y-4');
+            }, 2200);
+        }
+
+        /**
+         * Renders the 6 Exterior House Wall colour buttons
+         */
+        function renderWallSwatches() {
+            wallColorSwatchesEl.innerHTML = WALL_COLOURS.map(wall => {
+                const isSelected = state.wallColor.hex === wall.hex;
+                return `
+                    <button
+                        type="button"
+                        onclick="selectWallColor('${wall.hex}')"
+                        title="${wall.name} (${wall.hex})"
+                        style="background-color: ${wall.hex};"
+                        class="h-9 w-full rounded-xl border transition-all cursor-pointer ${isSelected ? 'ring-2 ring-offset-2 ring-slate-900 border-slate-900 scale-105' : 'border-slate-300 hover:scale-105'}"
+                    ></button>
+                `;
+            }).join('');
+            selectedWallNameEl.textContent = state.wallColor.name;
+        }
+
+        function selectWallColor(hex) {
+            const found = WALL_COLOURS.find(w => w.hex === hex);
+            if (!found) return;
+            state.wallColor = found;
+            svgHouseWallEl.setAttribute('fill', found.hex);
+            renderWallSwatches();
+        }
+
+        /**
+         * Updates the Live SVG House & Parking Door Illustration with current state
+         */
+        function updateVisualizer() {
+            const doorHex = state.doorColor.hex;
+            const frameHex = state.frameColor.hex;
+
+            // Update Frame & Hardware
+            svgDoorFrameEl.setAttribute('fill', frameHex);
+            svgSectionalHandleEl.setAttribute('fill', frameHex);
+            svgGatePerimeterEl.setAttribute('stroke', frameHex);
+            svgGateHandleLeftEl.setAttribute('fill', frameHex);
+            svgGateHandleRightEl.setAttribute('fill', frameHex);
+            svgShutterBoxEl.setAttribute('fill', frameHex);
+            svgShutterBottomBarEl.setAttribute('fill', frameHex);
+
+            // Update Door Panels / Slats / Shutter
+            svgSectionalBodyEl.setAttribute('fill', doorHex);
+            svgSlatsGroupEl.setAttribute('fill', doorHex);
+            svgShutterBodyEl.setAttribute('fill', doorHex);
+
+            // Toggle Wood Grain Texture Overlay
+            const woodOpacity = state.isWood ? '1' : '0';
+            svgSectionalWoodEl.setAttribute('opacity', woodOpacity);
+            svgSlattedWoodEl.setAttribute('opacity', woodOpacity);
+
+            // Update Top Pill & Control Panel Labels
+            document.getElementById('activeDoorDot').style.backgroundColor = doorHex;
+            document.getElementById('activeFrameDot').style.backgroundColor = frameHex;
+            document.getElementById('activeComboTitle').textContent = state.comboName;
+            document.getElementById('activeComboRating').textContent = `${state.rating.toFixed(2)} ★`;
+
+            document.getElementById('previewDoorSwatch').style.backgroundColor = doorHex;
+            document.getElementById('previewDoorLabel').textContent = state.doorColor.name;
+            document.getElementById('previewDoorHex').textContent = doorHex;
+
+            document.getElementById('previewFrameSwatch').style.backgroundColor = frameHex;
+            document.getElementById('previewFrameLabel').textContent = state.frameColor.name;
+            document.getElementById('previewFrameHex').textContent = frameHex;
+
+            document.getElementById('activeFinishBadge').textContent = state.finish;
+            document.getElementById('activeArchitectTip').textContent = state.tip;
+
+            // Toggle Door Style SVG Groups
+            document.getElementById('doorStyleSectional').classList.toggle('hidden', state.doorStyle !== 'sectional');
+            document.getElementById('doorStyleSlatted').classList.toggle('hidden', state.doorStyle !== 'slatted');
+            document.getElementById('doorStyleShutter').classList.toggle('hidden', state.doorStyle !== 'shutter');
+        }
+
+        /**
+         * Applies a chosen combination card to the live visualizer
+         */
+        function applyCombination(comboId, shouldScroll = false) {
+            const combo = PARKING_DOOR_COMBOS.find(c => c.id === comboId);
+            if (!combo) return;
+
+            state.selectedComboId = combo.id;
+            state.doorColor = { ...combo.door };
+            state.frameColor = { ...combo.frame };
+            state.isWood = combo.isWood;
+            state.finish = combo.finish;
+            state.tip = combo.tip;
+            state.rating = combo.rating;
+            state.comboName = combo.name;
+
+            updateVisualizer();
+            renderCombinationsGrid();
+
+            if (shouldScroll) {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        /**
+         * Helper to render mini rating bars (1 to 5)
+         */
+        function renderScoreDots(score) {
+            const filled = Math.round(score);
+            let html = '<span class="inline-flex items-center gap-0.5">';
+            for (let i = 1; i <= 5; i++) {
+                html += `<span class="h-1.5 w-3 rounded-full ${i <= filled ? 'bg-emerald-500' : 'bg-slate-200'}"></span>`;
+            }
+            html += '</span>';
+            return html;
+        }
+
+        /**
+         * Renders the filtered & sorted grid of Parking Door Colour Combinations
+         */
+        function renderCombinationsGrid() {
+            const q = state.searchQuery.trim().toLowerCase();
+
+            let list = PARKING_DOOR_COMBOS.filter(c => {
+                if (state.materialFilter !== 'all' && !c.materials.includes(state.materialFilter)) {
+                    return false;
+                }
+                if (q) {
+                    const matchName = c.name.toLowerCase().includes(q);
+                    const matchDoor = c.door.name.toLowerCase().includes(q) || c.door.hex.toLowerCase().includes(q);
+                    const matchFrame = c.frame.name.toLowerCase().includes(q) || c.frame.hex.toLowerCase().includes(q);
+                    const matchBest = c.bestFor.toLowerCase().includes(q);
+                    return matchName || matchDoor || matchFrame || matchBest;
+                }
+                return true;
+            });
+
+            // Sort
+            list.sort((a, b) => {
+                if (state.sortBy === 'dust') return (b.dustScore - a.dustScore) || (b.rating - a.rating);
+                if (state.sortBy === 'heat') return (b.heatScore - a.heatScore) || (b.rating - a.rating);
+                return b.rating - a.rating;
+            });
+
+            visibleCountBadgeEl.textContent = `${list.length} Combinations`;
+
+            if (list.length === 0) {
+                combinationsGridEl.innerHTML = '';
+                emptyStateEl.classList.remove('hidden');
+                emptyStateEl.classList.add('flex');
+                return;
+            } else {
+                emptyStateEl.classList.add('hidden');
+                emptyStateEl.classList.remove('flex');
+            }
+
+            const materialLabels = {
+                metal: 'Metal / Steel',
+                wood: 'Wood / WPC',
+                shutter: 'Shutter'
+            };
+
+            combinationsGridEl.innerHTML = list.map(combo => {
+                const isSelected = state.selectedComboId === combo.id;
+                const matBadges = combo.materials.map(m =>
+                    `<span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600">${materialLabels[m]}</span>`
+                ).join('');
+
+                return `
+                    <article class="bg-white rounded-2xl border transition-all duration-200 overflow-hidden flex flex-col justify-between ${isSelected ? 'border-slate-900 ring-2 ring-slate-900/15 shadow-md' : 'border-slate-200/90 shadow-xs hover:shadow-md'}">
+                        <div>
+                            <!-- Proportional Visual Swatch (75% Main Door, 25% Trim/Frame) -->
+                            <div class="relative h-32 w-full flex border-b border-slate-100">
+                                <button
+                                    type="button"
+                                    onclick="applyCombination('${combo.id}', true)"
+                                    style="background-color: ${combo.door.hex};"
+                                    class="flex-[3] h-full relative group text-left p-3 flex flex-col justify-end cursor-pointer ${combo.isWood ? 'wood-grain-overlay' : ''}"
+                                    title="Preview ${combo.name} on house"
+                                >
+                                    <span class="inline-block w-fit text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-black/45 text-white backdrop-blur-xs">
+                                        Door: ${combo.door.hex}
+                                    </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="applyCombination('${combo.id}', true)"
+                                    style="background-color: ${combo.frame.hex};"
+                                    class="flex-1 h-full relative border-l border-black/10 p-2 flex flex-col justify-end items-end cursor-pointer"
+                                    title="Frame/Trim: ${combo.frame.name} (${combo.frame.hex})"
+                                >
+                                    <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-black/50 text-white backdrop-blur-xs">
+                                        ${combo.frame.hex}
+                                    </span>
+                                </button>
+
+                                <!-- Top Rating Pill -->
+                                <span class="pointer-events-none absolute top-2.5 left-2.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-extrabold bg-white/95 text-slate-900 shadow-xs border border-slate-200/80">
+                                    <span class="text-amber-500">★</span> ${combo.rating.toFixed(2)}
+                                </span>
+
+                                ${isSelected ? `
+                                    <span class="pointer-events-none absolute top-2.5 right-2.5 px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase bg-slate-900 text-white shadow-xs">
+                                        Active on House
+                                    </span>
+                                ` : ''}
+                            </div>
+
+                            <!-- Card Body -->
+                            <div class="p-4 space-y-3">
+                                <div>
+                                    <h3 class="text-sm font-bold text-slate-900">${combo.name}</h3>
+                                    <p class="text-xs text-slate-500 mt-0.5">Best for: ${combo.bestFor}</p>
+                                </div>
+
+                                <!-- Practical Outdoor Scores: Dust & Heat Resistance -->
+                                <div class="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                                    <div>
+                                        <div class="flex items-center justify-between text-[11px] font-medium text-slate-600 mb-1">
+                                            <span>Dust Hiding</span>
+                                            <span class="font-bold text-slate-900">${combo.dustScore.toFixed(1)}</span>
+                                        </div>
+                                        ${renderScoreDots(combo.dustScore)}
+                                    </div>
+                                    <div>
+                                        <div class="flex items-center justify-between text-[11px] font-medium text-slate-600 mb-1">
+                                            <span>Heat / UV</span>
+                                            <span class="font-bold text-slate-900">${combo.heatScore.toFixed(1)}</span>
+                                        </div>
+                                        ${renderScoreDots(combo.heatScore)}
+                                    </div>
+                                </div>
+
+                                <!-- Suitable Materials & Finish -->
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    ${matBadges}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card Actions -->
+                        <div class="px-4 py-3 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between gap-2">
+                            <button
+                                type="button"
+                                onclick="applyCombination('${combo.id}', true)"
+                                class="flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-colors cursor-pointer ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-900 hover:bg-slate-800 text-white'}"
+                            >
+                                ${isSelected ? '✓ Viewing on House' : 'Try on House'}
+                            </button>
+                            <button
+                                type="button"
+                                onclick="copyText('Door: ${combo.door.name} (${combo.door.hex}) | Trim: ${combo.frame.name} (${combo.frame.hex})', '${combo.name.replace(/'/g, "\\'")}', '${combo.door.hex}')"
+                                class="py-2 px-3 rounded-xl text-xs font-semibold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+                                title="Copy HEX codes"
+                            >
+                                Copy HEX
+                            </button>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+        }
+
+        // Event Listeners for Door Style Buttons
+        document.querySelectorAll('.door-style-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.doorStyle = btn.getAttribute('data-style');
+                document.querySelectorAll('.door-style-btn').forEach(b => {
+                    const active = b.getAttribute('data-style') === state.doorStyle;
+                    b.className = active
+                        ? 'door-style-btn px-2.5 py-2 rounded-xl text-xs font-semibold border border-slate-900 bg-slate-900 text-white shadow-xs transition-all cursor-pointer'
+                        : 'door-style-btn px-2.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 transition-all cursor-pointer';
+                });
+                updateVisualizer();
+            });
+        });
+
+        // Swap Door & Frame Colours
+        document.getElementById('swapDoorTrimBtn').addEventListener('click', () => {
+            const temp = { ...state.doorColor };
+            state.doorColor = { ...state.frameColor };
+            state.frameColor = temp;
+            state.isWood = false; // Swapping puts trim colour on main door
+            updateVisualizer();
+            showToast('Swapped Door & Frame colours', state.doorColor.hex);
+        });
+
+        // Copy Active Door / Frame / Full Spec
+        document.getElementById('copyActiveDoorBtn').addEventListener('click', () => {
+            copyText(state.doorColor.hex, state.doorColor.name, state.doorColor.hex);
+        });
+        document.getElementById('copyActiveFrameBtn').addEventListener('click', () => {
+            copyText(state.frameColor.hex, state.frameColor.name, state.frameColor.hex);
+        });
+        document.getElementById('copyFullSpecBtn').addEventListener('click', () => {
+            const spec = `Parking Door: ${state.doorColor.name} (${state.doorColor.hex}) | Frame/Trim: ${state.frameColor.name} (${state.frameColor.hex}) | Finish: ${state.finish}`;
+            copyText(spec, 'Full Door Spec', state.doorColor.hex);
+        });
+
+        // Daylight / Evening Sconce Lighting Toggle
+        lightingToggleBtnEl.addEventListener('click', () => {
+            state.isEvening = !state.isEvening;
+            if (state.isEvening) {
+                skyBackdropEl.className = 'absolute inset-0 bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-800 transition-colors duration-500';
+                lightingIconEl.textContent = '🌙';
+                lightingTextEl.textContent = 'Evening Glow';
+                svgGlowLeftEl.setAttribute('opacity', '0.9');
+                svgGlowRightEl.setAttribute('opacity', '0.9');
+            } else {
+                skyBackdropEl.className = 'absolute inset-0 bg-gradient-to-b from-sky-200 via-sky-100 to-amber-50/60 transition-colors duration-500';
+                lightingIconEl.textContent = '☀️';
+                lightingTextEl.textContent = 'Daylight View';
+                svgGlowLeftEl.setAttribute('opacity', '0.15');
+                svgGlowRightEl.setAttribute('opacity', '0.15');
+            }
+        });
+
+        // Material Filter Tabs
+        document.querySelectorAll('.mat-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                state.materialFilter = tab.getAttribute('data-material');
+                document.querySelectorAll('.mat-tab').forEach(t => {
+                    const active = t.getAttribute('data-material') === state.materialFilter;
+                    t.className = active
+                        ? 'mat-tab shrink-0 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-900 text-white cursor-pointer'
+                        : 'mat-tab shrink-0 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer';
+                });
+                renderCombinationsGrid();
+            });
+        });
+
+        // Sort & Search Listeners
+        sortSelectEl.addEventListener('change', (e) => {
+            state.sortBy = e.target.value;
+            renderCombinationsGrid();
+        });
+
+        searchInputEl.addEventListener('input', (e) => {
+            state.searchQuery = e.target.value;
+            clearSearchBtnEl.classList.toggle('hidden', state.searchQuery.length === 0);
+            renderCombinationsGrid();
+        });
+
+        clearSearchBtnEl.addEventListener('click', () => {
+            state.searchQuery = '';
+            searchInputEl.value = '';
+            clearSearchBtnEl.classList.add('hidden');
+            renderCombinationsGrid();
+        });
+
+        resetFiltersBtnEl.addEventListener('click', () => {
+            state.searchQuery = '';
+            searchInputEl.value = '';
+            clearSearchBtnEl.classList.add('hidden');
+            state.materialFilter = 'all';
+            document.querySelectorAll('.mat-tab').forEach(t => {
+                const active = t.getAttribute('data-material') === 'all';
+                t.className = active
+                    ? 'mat-tab shrink-0 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-900 text-white cursor-pointer'
+                    : 'mat-tab shrink-0 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer';
+            });
+            renderCombinationsGrid();
+        });
+
+        // Initial Render
+        renderWallSwatches();
+        updateVisualizer();
+        renderCombinationsGrid();
+    </script>
+</body>
+</html>
