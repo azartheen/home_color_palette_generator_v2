@@ -118,19 +118,28 @@
             border-color: #0f172a;
         }
         .photo-tool-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        #photoCanvas, #photoOverlay {
+        .photo-canvas-wrap {
+            position: relative;
+            display: inline-block;
             max-width: 100%;
-            max-height: 100%;
+            max-height: 56vh;
+        }
+        #photoCanvas {
+            max-width: 100%;
+            max-height: 56vh;
+            height: auto;
             display: block;
+            border-radius: 12px;
         }
         #photoOverlay {
             position: absolute;
-            left: 0; top: 0;
+            inset: 0;
+            width: 100%;
+            height: 100%;
             pointer-events: none;
-            mix-blend-mode: multiply;
             opacity: 0.55;
+            border-radius: 12px;
         }
-        .photo-canvas-wrap { position: relative; display: inline-block; }
         .spinner {
             width: 22px; height: 22px;
             border: 3px solid rgba(255,255,255,0.25);
@@ -225,10 +234,21 @@
 
         <!-- Interactive Live Exterior House & Parking Door Visualizer Panel -->
         <section aria-label="Live Parking Door Visualizer" class="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
+
+            <!-- Mode Toggle: Sample SVG House vs Upload-Your-Photo -->
+            <div class="flex items-center gap-2 px-5 pt-4 pb-2 border-b border-slate-100 bg-slate-50/50">
+                <button id="modeSvgBtn" type="button" class="mode-tab active">🏠 Sample House</button>
+                <button id="modePhotoBtn" type="button" class="mode-tab">📷 Upload Your Photo</button>
+                <span class="ml-auto hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    AI auto-detect · runs in your browser
+                </span>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-12">
 
                 <!-- Left / Top: Architectural Illustration Canvas -->
-                <div class="lg:col-span-7 relative flex flex-col justify-between min-h-[340px] sm:min-h-[410px] overflow-hidden border-b lg:border-b-0 lg:border-r border-slate-200">
+                <div id="svgWorkspace" class="lg:col-span-7 relative flex flex-col justify-between min-h-[340px] sm:min-h-[410px] overflow-hidden border-b lg:border-b-0 lg:border-r border-slate-200">
                     <!-- Sky & Sun Backdrop -->
                     <div id="skyBackdrop" class="absolute inset-0 bg-gradient-to-b from-sky-200 via-sky-100 to-amber-50/60 transition-colors duration-500"></div>
 
@@ -392,9 +412,92 @@
                     </div>
                 </div>
 
+                <!-- PHOTO WORKSPACE (hidden by default, shown when "Upload Your Photo" mode is active) -->
+                <div id="photoWorkspace" class="hidden lg:col-span-7 relative flex flex-col min-h-[340px] sm:min-h-[460px] overflow-hidden border-b lg:border-b-0 lg:border-r border-slate-200 bg-gradient-to-br from-slate-100 to-slate-200">
+
+                    <!-- Busy / Loading Overlay -->
+                    <div id="photoBusyOverlay">
+                        <div class="spinner"></div>
+                        <div id="photoBusyMessage" class="text-sm font-semibold">Loading AI model…</div>
+                        <div class="w-56 progress-bar"><div id="photoBusyBar"></div></div>
+                        <div id="photoBusySub" class="text-[11px] text-slate-300">First load downloads ~15 MB · cached after</div>
+                    </div>
+
+                    <!-- Empty / Dropzone State -->
+                    <div id="photoDropzoneWrap" class="flex-1 flex items-center justify-center p-6">
+                        <div id="photoDropzone" class="photo-dropzone w-full max-w-md p-8 text-center">
+                            <svg class="w-10 h-10 mx-auto text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 16.5V19a2 2 0 002 2h14a2 2 0 002-2v-2.5M16 10l-4-4m0 0l-4 4m4-4v12"/>
+                            </svg>
+                            <h3 class="text-sm font-bold text-slate-900">Drop a photo of your home</h3>
+                            <p class="text-[11px] text-slate-500 mt-1">PNG / JPG · stays on your device · we auto-detect walls, doors & windows</p>
+                            <label class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold cursor-pointer hover:bg-slate-800">
+                                <input id="photoFileInput" type="file" accept="image/*" class="hidden" />
+                                Choose Photo
+                            </label>
+                            <div class="mt-5 pt-5 border-t border-slate-200">
+                                <p class="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2">Or try a sample</p>
+                                <div class="flex items-center justify-center gap-2 flex-wrap">
+                                    <button type="button" data-sample="villa" class="sample-photo-btn px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-white border border-slate-200 hover:border-slate-900 text-slate-700">Modern Villa</button>
+                                    <button type="button" data-sample="bungalow" class="sample-photo-btn px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-white border border-slate-200 hover:border-slate-900 text-slate-700">Suburban Bungalow</button>
+                                    <button type="button" data-sample="garage" class="sample-photo-btn px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-white border border-slate-200 hover:border-slate-900 text-slate-700">Garage Facade</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Canvas State (hidden until photo loaded) -->
+                    <div id="photoCanvasState" class="hidden flex-1 flex flex-col">
+                        <!-- Top toolbar on the canvas -->
+                        <div class="relative z-10 flex flex-wrap items-center gap-2 p-3">
+                            <button id="autoDetectBtn" type="button" class="photo-tool-btn">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                                Auto-detect regions
+                            </button>
+                            <button id="brushModeBtn" type="button" class="photo-tool-btn" title="Click any pixel in the photo to flood-fill a region">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+                                Brush fill
+                            </button>
+                            <div class="h-5 w-px bg-slate-300 mx-1"></div>
+                            <button id="undoPhotoBtn" type="button" class="photo-tool-btn" title="Undo last change">↶ Undo</button>
+                            <button id="resetPhotoBtn" type="button" class="photo-tool-btn" title="Restore the original">Reset</button>
+                            <button id="downloadPhotoBtn" type="button" class="photo-tool-btn">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+                                Download
+                            </button>
+                            <button id="changePhotoBtn" type="button" class="photo-tool-btn ml-auto">⤒ Replace photo</button>
+                        </div>
+
+                        <!-- Canvas -->
+                        <div class="flex-1 flex items-center justify-center p-3 overflow-hidden">
+                            <div class="photo-canvas-wrap shadow-lg rounded-xl overflow-hidden bg-white">
+                                <canvas id="photoCanvas"></canvas>
+                                <canvas id="photoOverlay"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Region chips (populated after auto-detect) -->
+                        <div class="px-3 pb-3">
+                            <div id="regionChipsWrap" class="hidden">
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                                    <span id="regionChipsHeading">Detected regions · tap one, then pick a colour</span>
+                                </p>
+                                <div id="regionChips" class="flex items-center gap-1.5 flex-wrap"></div>
+                            </div>
+                            <div id="brushHint" class="hidden text-[11px] text-slate-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                <strong>Brush mode:</strong> click anywhere in the photo to fill that area, then tap a colour.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Right / Bottom: Interactive Visualizer Controls -->
                 <div class="lg:col-span-5 p-5 sm:p-6 flex flex-col justify-between gap-5 bg-slate-50/60">
                     <div class="space-y-5">
+                        <!-- Photo-mode guidance banner (hidden in SVG mode) -->
+                        <div id="photoModeHint" class="hidden p-2.5 rounded-xl bg-indigo-50 border border-indigo-200 text-[11px] text-indigo-900">
+                            <strong>Photo mode:</strong> pick a region under your photo, then tap any wall swatch or combination card to re-paint it. Use <em>Brush fill</em> for anything the AI missed.
+                        </div>
                         <!-- Step 1: Select Parking Door Type -->
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
@@ -1313,6 +1416,666 @@
         renderWallSwatches();
         updateVisualizer();
         renderCombinationsGrid();
+
+        /* =====================================================================
+         *  PHOTO MODE: upload a real photo, AI auto-detect regions,
+         *  tap a palette colour to repaint that region (lighting preserved).
+         *  ===================================================================== */
+
+        const photoState = {
+            mode: 'svg',              // 'svg' | 'photo'
+            originalImageData: null,  // ImageData of pristine photo (never mutated)
+            workingImageData: null,   // Current rendered state (mutated as colours applied)
+            canvas: null,
+            ctx: null,
+            overlayCanvas: null,
+            overlayCtx: null,
+            regions: [],              // [{ id, label, rawLabel, mask: Uint8Array, pixelCount, color, isBrush }]
+            selectedRegionId: null,
+            brushMode: false,
+            segmenter: null,          // lazy-loaded transformers.js pipeline
+            cv: null,                 // lazy-loaded OpenCV.js
+            history: []               // snapshots for undo
+        };
+
+        const photoCanvasEl   = document.getElementById('photoCanvas');
+        const photoOverlayEl  = document.getElementById('photoOverlay');
+        const photoBusy       = document.getElementById('photoBusyOverlay');
+        const photoBusyMsg    = document.getElementById('photoBusyMessage');
+        const photoBusySub    = document.getElementById('photoBusySub');
+        const photoBusyBar    = document.getElementById('photoBusyBar');
+        const photoDropzoneEl = document.getElementById('photoDropzone');
+        const photoDropWrapEl = document.getElementById('photoDropzoneWrap');
+        const photoCanvasState= document.getElementById('photoCanvasState');
+        const photoFileInput  = document.getElementById('photoFileInput');
+        const regionChipsWrap = document.getElementById('regionChipsWrap');
+        const regionChipsEl   = document.getElementById('regionChips');
+        const brushHintEl     = document.getElementById('brushHint');
+        const photoModeHint   = document.getElementById('photoModeHint');
+
+        /* ---------------- Mode switching ---------------- */
+        function setMode(m) {
+            photoState.mode = m;
+            document.getElementById('modeSvgBtn').classList.toggle('active', m === 'svg');
+            document.getElementById('modePhotoBtn').classList.toggle('active', m === 'photo');
+            document.getElementById('svgWorkspace').classList.toggle('hidden', m !== 'svg');
+            document.getElementById('photoWorkspace').classList.toggle('hidden', m !== 'photo');
+            photoModeHint.classList.toggle('hidden', m !== 'photo');
+        }
+        document.getElementById('modeSvgBtn').addEventListener('click', () => setMode('svg'));
+        document.getElementById('modePhotoBtn').addEventListener('click', () => setMode('photo'));
+
+        /* ---------------- Busy overlay ---------------- */
+        function showBusy(msg, sub = '') {
+            photoBusy.classList.add('show');
+            photoBusyMsg.textContent = msg;
+            photoBusySub.textContent = sub;
+            photoBusyBar.style.width = '0%';
+        }
+        function hideBusy() { photoBusy.classList.remove('show'); }
+        function setBusyProgress(pct, sub) {
+            photoBusyBar.style.width = Math.max(0, Math.min(100, pct)) + '%';
+            if (sub) photoBusySub.textContent = sub;
+        }
+
+        /* ---------------- Upload / drag-drop ---------------- */
+        photoFileInput.addEventListener('change', (e) => {
+            const f = e.target.files && e.target.files[0];
+            if (f) loadPhotoFromFile(f);
+        });
+        ['dragenter', 'dragover'].forEach(ev =>
+            photoDropzoneEl.addEventListener(ev, (e) => { e.preventDefault(); photoDropzoneEl.classList.add('dragover'); })
+        );
+        ['dragleave', 'drop'].forEach(ev =>
+            photoDropzoneEl.addEventListener(ev, (e) => { e.preventDefault(); photoDropzoneEl.classList.remove('dragover'); })
+        );
+        photoDropzoneEl.addEventListener('drop', (e) => {
+            const f = e.dataTransfer.files && e.dataTransfer.files[0];
+            if (f) loadPhotoFromFile(f);
+        });
+
+        function loadPhotoFromFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => loadPhotoFromUrl(e.target.result);
+            reader.readAsDataURL(file);
+        }
+
+        function loadPhotoFromUrl(url) {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                const MAX = 900; // cap long edge for performance
+                let w = img.width, h = img.height;
+                const scale = Math.min(1, MAX / Math.max(w, h));
+                w = Math.round(w * scale);
+                h = Math.round(h * scale);
+                photoCanvasEl.width = w;
+                photoCanvasEl.height = h;
+                photoOverlayEl.width = w;
+                photoOverlayEl.height = h;
+
+                const ctx = photoCanvasEl.getContext('2d', { willReadFrequently: true });
+                ctx.drawImage(img, 0, 0, w, h);
+
+                photoState.canvas = photoCanvasEl;
+                photoState.ctx = ctx;
+                photoState.overlayCanvas = photoOverlayEl;
+                photoState.overlayCtx = photoOverlayEl.getContext('2d');
+                photoState.originalImageData = ctx.getImageData(0, 0, w, h);
+                photoState.workingImageData = new ImageData(new Uint8ClampedArray(photoState.originalImageData.data), w, h);
+                photoState.regions = [];
+                photoState.selectedRegionId = null;
+                photoState.history = [];
+
+                photoDropWrapEl.classList.add('hidden');
+                photoCanvasState.classList.remove('hidden');
+                regionChipsWrap.classList.add('hidden');
+                regionChipsEl.innerHTML = '';
+                brushHintEl.classList.add('hidden');
+                photoState.brushMode = false;
+                document.getElementById('brushModeBtn').classList.remove('active');
+                photoCanvasEl.classList.remove('brush-cursor');
+            };
+            img.onerror = () => showToast('Could not load image', '#ef4444');
+            img.src = url;
+        }
+
+        /* ---------------- Sample photos (procedural) ---------------- */
+        document.querySelectorAll('.sample-photo-btn').forEach(btn => {
+            btn.addEventListener('click', () => loadPhotoFromUrl(makeSamplePhoto(btn.getAttribute('data-sample'))));
+        });
+
+        function makeSamplePhoto(type) {
+            const w = 820, h = 500;
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            const g = c.getContext('2d');
+
+            const palette = {
+                villa:    { wall: '#ead7b5', roof: '#403028', door: '#4a5765', sky1: '#9fc9ec', sky2: '#eaf2fa', ground: '#4a4740' },
+                bungalow: { wall: '#e0c8a8', roof: '#8c3a28', door: '#5f3a1e', sky1: '#a6cfe4', sky2: '#eaf3f8', ground: '#4b4a3a' },
+                garage:   { wall: '#cbd0d6', roof: '#2a2f38', door: '#3d434d', sky1: '#b4cfe3', sky2: '#edf2f5', ground: '#404048' }
+            }[type] || {};
+
+            // Sky
+            const sky = g.createLinearGradient(0, 0, 0, h * 0.62);
+            sky.addColorStop(0, palette.sky1); sky.addColorStop(1, palette.sky2);
+            g.fillStyle = sky; g.fillRect(0, 0, w, h * 0.68);
+
+            // Ground
+            g.fillStyle = palette.ground; g.fillRect(0, h * 0.72, w, h);
+
+            // Roof (triangle + fascia)
+            g.fillStyle = palette.roof;
+            g.beginPath();
+            g.moveTo(w * 0.06, h * 0.28);
+            g.lineTo(w * 0.5,  h * 0.08);
+            g.lineTo(w * 0.94, h * 0.28);
+            g.closePath(); g.fill();
+
+            // Wall
+            g.fillStyle = palette.wall;
+            g.fillRect(w * 0.1, h * 0.26, w * 0.8, h * 0.48);
+
+            // Side window (left)
+            g.fillStyle = '#20252c'; g.fillRect(w * 0.14, h * 0.34, w * 0.1, h * 0.14);
+            g.fillStyle = '#a9cae1'; g.fillRect(w * 0.148, h * 0.348, w * 0.084, h * 0.124);
+            g.strokeStyle = '#20252c'; g.lineWidth = 2;
+            g.beginPath(); g.moveTo(w * 0.19, h * 0.348); g.lineTo(w * 0.19, h * 0.472); g.stroke();
+            g.beginPath(); g.moveTo(w * 0.148, h * 0.41); g.lineTo(w * 0.232, h * 0.41); g.stroke();
+
+            // Side window (right)
+            g.fillStyle = '#20252c'; g.fillRect(w * 0.76, h * 0.34, w * 0.1, h * 0.14);
+            g.fillStyle = '#a9cae1'; g.fillRect(w * 0.768, h * 0.348, w * 0.084, h * 0.124);
+            g.strokeStyle = '#20252c'; g.lineWidth = 2;
+            g.beginPath(); g.moveTo(w * 0.81, h * 0.348); g.lineTo(w * 0.81, h * 0.472); g.stroke();
+            g.beginPath(); g.moveTo(w * 0.768, h * 0.41); g.lineTo(w * 0.852, h * 0.41); g.stroke();
+
+            // Garage door
+            g.fillStyle = palette.door;
+            g.fillRect(w * 0.3, h * 0.42, w * 0.4, h * 0.3);
+            g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = 2;
+            for (let i = 1; i < 4; i++) {
+                const y = h * (0.42 + i * 0.075);
+                g.beginPath(); g.moveTo(w * 0.3, y); g.lineTo(w * 0.7, y); g.stroke();
+            }
+
+            // Slight shadow under roof for depth
+            const shadow = g.createLinearGradient(0, h * 0.26, 0, h * 0.34);
+            shadow.addColorStop(0, 'rgba(0,0,0,0.25)'); shadow.addColorStop(1, 'rgba(0,0,0,0)');
+            g.fillStyle = shadow; g.fillRect(w * 0.1, h * 0.26, w * 0.8, h * 0.08);
+
+            // Grain/noise to feel photographic
+            const imgd = g.getImageData(0, 0, w, h);
+            for (let i = 0; i < imgd.data.length; i += 4) {
+                const n = (Math.random() - 0.5) * 8;
+                imgd.data[i]   = Math.max(0, Math.min(255, imgd.data[i] + n));
+                imgd.data[i+1] = Math.max(0, Math.min(255, imgd.data[i+1] + n));
+                imgd.data[i+2] = Math.max(0, Math.min(255, imgd.data[i+2] + n));
+            }
+            g.putImageData(imgd, 0, 0);
+
+            return c.toDataURL('image/jpeg', 0.9);
+        }
+
+        /* ---------------- Auto-detect (SegFormer via transformers.js) ---------------- */
+        document.getElementById('autoDetectBtn').addEventListener('click', autoDetect);
+
+        async function autoDetect() {
+            if (!photoState.originalImageData) return;
+            showBusy('Loading AI model…', 'First time: ~15 MB download · cached after');
+
+            try {
+                if (!photoState.segmenter) {
+                    const mod = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3');
+                    photoState.segmenter = await mod.pipeline(
+                        'image-segmentation',
+                        'Xenova/segformer-b0-finetuned-ade-512-512',
+                        {
+                            progress_callback: (data) => {
+                                if (data.status === 'progress') {
+                                    const pct = Math.min(99, Math.round(data.progress || 0));
+                                    setBusyProgress(pct, `${(data.file || data.name || 'model').toString().slice(0, 40)} · ${pct}%`);
+                                } else if (data.status === 'done' || data.status === 'ready') {
+                                    setBusyProgress(100);
+                                }
+                            }
+                        }
+                    );
+                }
+
+                setBusyProgress(0);
+                photoBusyMsg.textContent = 'Analyzing your home…';
+                photoBusySub.textContent = 'Finding walls, doors, windows, sky…';
+
+                const dataUrl = photoState.canvas.toDataURL('image/jpeg', 0.95);
+                const results = await photoState.segmenter(dataUrl);
+
+                // Keep only architectural ADE20K classes relevant to exterior repainting
+                const RELEVANT = ['wall','door','window','windowpane','building','house','sky','road','sidewalk','floor','fence','ceiling'];
+                const picked = results.filter(r => RELEVANT.includes(r.label));
+
+                const w = photoState.canvas.width;
+                const h = photoState.canvas.height;
+                photoState.regions = picked.map((r, idx) => {
+                    const resized = resizeMask(r.mask, w, h);
+                    const px = countMask(resized);
+                    return {
+                        id: `ai-${idx}-${r.label}`,
+                        label: niceLabel(r.label),
+                        rawLabel: r.label,
+                        mask: resized,
+                        pixelCount: px,
+                        color: null,
+                        isBrush: false
+                    };
+                }).filter(r => r.pixelCount > 300)
+                  .sort((a, b) => b.pixelCount - a.pixelCount);
+
+                renderRegionChips();
+                if (photoState.regions.length === 0) {
+                    showToast('No regions auto-detected — try Brush fill');
+                } else {
+                    const prefer = photoState.regions.find(r => r.rawLabel === 'wall')
+                                 || photoState.regions.find(r => r.rawLabel === 'door')
+                                 || photoState.regions[0];
+                    selectRegion(prefer.id);
+                    showToast(`Detected ${photoState.regions.length} regions — pick one, then tap a colour`, '#38bdf8');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Auto-detect failed — try Brush fill mode');
+            } finally {
+                hideBusy();
+            }
+        }
+
+        function niceLabel(label) {
+            return ({
+                wall: 'Wall', door: 'Door / Gate', window: 'Window', windowpane: 'Window',
+                building: 'Building', house: 'House', sky: 'Sky', road: 'Driveway',
+                sidewalk: 'Sidewalk', floor: 'Floor', fence: 'Fence', ceiling: 'Ceiling'
+            })[label] || label;
+        }
+
+        function countMask(mask) { let c = 0; for (let i = 0; i < mask.length; i++) if (mask[i]) c++; return c; }
+
+        function resizeMask(rawMask, targetW, targetH) {
+            const srcW = rawMask.width, srcH = rawMask.height;
+            const out = new Uint8Array(targetW * targetH);
+            const scaleX = srcW / targetW;
+            const scaleY = srcH / targetH;
+            for (let y = 0; y < targetH; y++) {
+                const sy = Math.min(srcH - 1, Math.floor(y * scaleY));
+                const rowSrc = sy * srcW;
+                const rowDst = y * targetW;
+                for (let x = 0; x < targetW; x++) {
+                    const sx = Math.min(srcW - 1, Math.floor(x * scaleX));
+                    out[rowDst + x] = rawMask.data[rowSrc + sx] > 127 ? 1 : 0;
+                }
+            }
+            return out;
+        }
+
+        /* ---------------- Region chips ---------------- */
+        function renderRegionChips() {
+            if (photoState.regions.length === 0) { regionChipsWrap.classList.add('hidden'); return; }
+            regionChipsWrap.classList.remove('hidden');
+            regionChipsEl.innerHTML = photoState.regions.map(r => {
+                const isSel = r.id === photoState.selectedRegionId;
+                const dotColor = r.color || 'transparent';
+                return `<button type="button" class="region-chip ${isSel ? 'active' : ''}" data-region-id="${r.id}">
+                    <span class="dot" style="background:${dotColor};"></span>
+                    ${r.label}${r.isBrush ? ' <span style="opacity:0.6;font-weight:500;">(brush)</span>' : ''}
+                </button>`;
+            }).join('');
+            regionChipsEl.querySelectorAll('[data-region-id]').forEach(el => {
+                const id = el.getAttribute('data-region-id');
+                el.addEventListener('click', () => selectRegion(id));
+                el.addEventListener('mouseenter', () => drawOverlayForRegion(id));
+                el.addEventListener('mouseleave', () => clearOverlay());
+            });
+        }
+
+        let overlayFadeTimer = null;
+        function selectRegion(id) {
+            photoState.selectedRegionId = id;
+            renderRegionChips();
+            drawOverlayForRegion(id);
+            // Brief pulse — fade after 1.4s so it doesn't hide subsequent recolour
+            if (overlayFadeTimer) clearTimeout(overlayFadeTimer);
+            overlayFadeTimer = setTimeout(clearOverlay, 1400);
+        }
+
+        function clearOverlay() {
+            if (!photoState.overlayCtx) return;
+            photoState.overlayCtx.clearRect(0, 0, photoState.overlayCanvas.width, photoState.overlayCanvas.height);
+        }
+
+        function drawOverlayForRegion(id) {
+            const octx = photoState.overlayCtx;
+            const w = photoState.overlayCanvas.width;
+            const h = photoState.overlayCanvas.height;
+            octx.clearRect(0, 0, w, h);
+            if (!id) return;
+            const r = photoState.regions.find(x => x.id === id);
+            if (!r) return;
+            const imgd = octx.createImageData(w, h);
+            for (let i = 0; i < r.mask.length; i++) {
+                if (r.mask[i]) {
+                    imgd.data[i * 4]     = 56;
+                    imgd.data[i * 4 + 1] = 189;
+                    imgd.data[i * 4 + 2] = 248;
+                    imgd.data[i * 4 + 3] = 160;
+                }
+            }
+            octx.putImageData(imgd, 0, 0);
+        }
+
+        /* ---------------- Colour recolour (HSL luminance-preserving) ---------------- */
+        function hexToRgb(hex) {
+            const m = hex.replace('#', '').match(/.{1,2}/g);
+            return [parseInt(m[0], 16), parseInt(m[1], 16), parseInt(m[2], 16)];
+        }
+        function rgbToHsl(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+            if (max === min) { h = s = 0; }
+            else {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+            return [h, s, l];
+        }
+        function hslToRgb(h, s, l) {
+            let r, g, b;
+            if (s === 0) { r = g = b = l; }
+            else {
+                const hue2rgb = (p, q, t) => {
+                    if (t < 0) t += 1; if (t > 1) t -= 1;
+                    if (t < 1/6) return p + (q - p) * 6 * t;
+                    if (t < 1/2) return q;
+                    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                    return p;
+                };
+                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                const p = 2 * l - q;
+                r = hue2rgb(p, q, h + 1/3);
+                g = hue2rgb(p, q, h);
+                b = hue2rgb(p, q, h - 1/3);
+            }
+            return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+        }
+
+        function applyColorToRegion(regionId, hex) {
+            const r = photoState.regions.find(x => x.id === regionId);
+            if (!r) return;
+            r.color = hex;
+            repaintPhotoFromAssignments();
+            renderRegionChips();
+            clearOverlay();
+            if (overlayFadeTimer) clearTimeout(overlayFadeTimer);
+        }
+
+        function repaintPhotoFromAssignments() {
+            pushHistory();
+            const orig = photoState.originalImageData;
+            const w = orig.width, h = orig.height;
+            const out = new Uint8ClampedArray(orig.data);
+
+            photoState.regions.forEach(r => {
+                if (!r.color) return;
+                const [tr, tg, tb] = hexToRgb(r.color);
+                const [tH, tS, tL] = rgbToHsl(tr, tg, tb);
+
+                // Compute mean L across the masked pixels
+                let sumL = 0, count = 0;
+                for (let i = 0; i < r.mask.length; i++) {
+                    if (!r.mask[i]) continue;
+                    const pr = orig.data[i * 4];
+                    const pg = orig.data[i * 4 + 1];
+                    const pb = orig.data[i * 4 + 2];
+                    const [, , l] = rgbToHsl(pr, pg, pb);
+                    sumL += l; count++;
+                }
+                if (count === 0) return;
+                const meanL = sumL / count;
+
+                for (let i = 0; i < r.mask.length; i++) {
+                    if (!r.mask[i]) continue;
+                    const pr = orig.data[i * 4];
+                    const pg = orig.data[i * 4 + 1];
+                    const pb = orig.data[i * 4 + 2];
+                    const [, , l] = rgbToHsl(pr, pg, pb);
+                    // Shift local L so that region's mean L maps to target L — preserves shadows & highlights
+                    let newL = l - meanL + tL;
+                    newL = Math.max(0, Math.min(1, newL));
+                    const [nr, ng, nb] = hslToRgb(tH, tS, newL);
+                    out[i * 4]     = nr;
+                    out[i * 4 + 1] = ng;
+                    out[i * 4 + 2] = nb;
+                }
+            });
+
+            photoState.workingImageData = new ImageData(out, w, h);
+            photoState.ctx.putImageData(photoState.workingImageData, 0, 0);
+        }
+
+        function pushHistory() {
+            photoState.history.push(new Uint8ClampedArray(photoState.workingImageData.data));
+            if (photoState.history.length > 12) photoState.history.shift();
+        }
+
+        /* ---------------- Undo / Reset / Download / Replace ---------------- */
+        document.getElementById('undoPhotoBtn').addEventListener('click', () => {
+            // Undo = clear the most-recent region colour, then re-paint
+            const last = [...photoState.regions].reverse().find(r => r.color);
+            if (!last) { showToast('Nothing to undo'); return; }
+            last.color = null;
+            repaintPhotoFromAssignments();
+            renderRegionChips();
+        });
+
+        document.getElementById('resetPhotoBtn').addEventListener('click', () => {
+            photoState.regions.forEach(r => r.color = null);
+            photoState.workingImageData = new ImageData(
+                new Uint8ClampedArray(photoState.originalImageData.data),
+                photoState.canvas.width, photoState.canvas.height
+            );
+            photoState.ctx.putImageData(photoState.workingImageData, 0, 0);
+            photoState.history = [];
+            renderRegionChips();
+            photoState.overlayCtx.clearRect(0, 0, photoState.canvas.width, photoState.canvas.height);
+            if (photoState.selectedRegionId) drawOverlayForRegion(photoState.selectedRegionId);
+        });
+
+        document.getElementById('downloadPhotoBtn').addEventListener('click', () => {
+            const url = photoState.canvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = url; a.download = 'home-coloured.png'; a.click();
+            showToast('Downloaded home-coloured.png', '#10b981');
+        });
+
+        document.getElementById('changePhotoBtn').addEventListener('click', () => {
+            photoCanvasState.classList.add('hidden');
+            photoDropWrapEl.classList.remove('hidden');
+            photoState.originalImageData = null;
+            photoState.regions = [];
+            photoState.selectedRegionId = null;
+        });
+
+        /* ---------------- Brush mode (OpenCV flood-fill) ---------------- */
+        document.getElementById('brushModeBtn').addEventListener('click', toggleBrushMode);
+
+        async function toggleBrushMode() {
+            photoState.brushMode = !photoState.brushMode;
+            const btn = document.getElementById('brushModeBtn');
+            btn.classList.toggle('active', photoState.brushMode);
+            brushHintEl.classList.toggle('hidden', !photoState.brushMode);
+            photoCanvasEl.classList.toggle('brush-cursor', photoState.brushMode);
+
+            if (photoState.brushMode && !photoState.cv) {
+                showBusy('Loading Brush engine…', 'First time: ~8 MB OpenCV.js · cached after');
+                try { await loadOpenCV(); } catch (e) { showToast('Could not load Brush engine'); }
+                hideBusy();
+            }
+        }
+
+        function loadOpenCV() {
+            return new Promise((resolve, reject) => {
+                if (window.cv && window.cv.Mat) { photoState.cv = window.cv; return resolve(); }
+                let done = false;
+                const finish = () => {
+                    if (done) return;
+                    if (window.cv && window.cv.Mat) { done = true; photoState.cv = window.cv; resolve(); }
+                };
+                const existing = document.getElementById('opencv-script');
+                if (!existing) {
+                    const script = document.createElement('script');
+                    script.id = 'opencv-script';
+                    script.src = 'https://docs.opencv.org/4.9.0/opencv.js';
+                    script.async = true;
+                    script.onload = () => {
+                        if (window.cv && window.cv.Mat) finish();
+                        else { window.cv = window.cv || {}; window.cv.onRuntimeInitialized = finish; }
+                    };
+                    script.onerror = () => reject(new Error('OpenCV load failed'));
+                    document.body.appendChild(script);
+                }
+                // Also poll as a safety net (some builds skip onRuntimeInitialized)
+                const t0 = Date.now();
+                const iv = setInterval(() => {
+                    if (window.cv && window.cv.Mat) { clearInterval(iv); finish(); }
+                    else if (Date.now() - t0 > 30000) { clearInterval(iv); reject(new Error('OpenCV timeout')); }
+                }, 150);
+            });
+        }
+
+        photoCanvasEl.addEventListener('click', async (e) => {
+            if (!photoState.brushMode || !photoState.originalImageData) return;
+            const rect = photoCanvasEl.getBoundingClientRect();
+            const scaleX = photoCanvasEl.width / rect.width;
+            const scaleY = photoCanvasEl.height / rect.height;
+            const x = Math.floor((e.clientX - rect.left) * scaleX);
+            const y = Math.floor((e.clientY - rect.top) * scaleY);
+            await addBrushRegion(x, y);
+        });
+
+        async function addBrushRegion(x, y) {
+            try {
+                if (!photoState.cv) {
+                    showBusy('Loading Brush engine…', 'First time: ~8 MB OpenCV.js · cached after');
+                    await loadOpenCV();
+                    hideBusy();
+                }
+                const cv = photoState.cv;
+                const w = photoState.canvas.width, h = photoState.canvas.height;
+
+                // Flood-fill is computed against the ORIGINAL image so regions always come from
+                // the untouched photo, not whatever colour you just painted on top.
+                const src = cv.matFromImageData(photoState.originalImageData);
+                const mask = cv.Mat.zeros(h + 2, w + 2, cv.CV_8UC1);
+                const seed = new cv.Point(x, y);
+                const lo = new cv.Scalar(20, 20, 20, 0);
+                const hi = new cv.Scalar(20, 20, 20, 0);
+                const newVal = new cv.Scalar(0, 0, 0, 0);
+                const rect = new cv.Rect();
+                // 4-connectivity | FLOODFILL_MASK_ONLY (1<<17) | new mask val (255<<8)
+                const flags = 4 | (1 << 17) | (255 << 8);
+                cv.floodFill(src, mask, seed, newVal, rect, lo, hi, flags);
+
+                const maskArr = new Uint8Array(w * h);
+                for (let yy = 0; yy < h; yy++) {
+                    const rowDst = yy * w;
+                    for (let xx = 0; xx < w; xx++) {
+                        // mask is (h+2)x(w+2) with 1-pixel border
+                        maskArr[rowDst + xx] = mask.ucharPtr(yy + 1, xx + 1)[0] > 0 ? 1 : 0;
+                    }
+                }
+                const pxCount = countMask(maskArr);
+                src.delete(); mask.delete();
+
+                if (pxCount < 80) { showToast('Fill too small — try another spot'); return; }
+
+                const region = {
+                    id: `brush-${Date.now()}`,
+                    label: `Brush ${photoState.regions.filter(r => r.isBrush).length + 1}`,
+                    rawLabel: 'brush',
+                    mask: maskArr,
+                    pixelCount: pxCount,
+                    color: null,
+                    isBrush: true
+                };
+                photoState.regions.push(region);
+                selectRegion(region.id);
+                showToast(`Added brush region (${pxCount.toLocaleString()} px) — pick a colour`, '#38bdf8');
+            } catch (err) {
+                console.error(err);
+                showToast('Brush fill failed');
+            }
+        }
+
+        /* ---------------- Hook into existing swatch & combo clicks ---------------- *
+         *  In photo mode, clicking a wall swatch or a combination card re-paints   *
+         *  the currently selected region on the photo instead of (or in addition   *
+         *  to) just updating the SVG.                                              */
+        const _origSelectWallColor = selectWallColor;
+        selectWallColor = function(hex) {
+            // Keep the SVG & swatch UI in sync regardless of mode
+            _origSelectWallColor(hex);
+            if (photoState.mode !== 'photo' || !photoState.originalImageData) return;
+
+            let targetId = photoState.selectedRegionId;
+            if (!targetId) {
+                const wall = photoState.regions.find(r => r.rawLabel === 'wall');
+                if (wall) targetId = wall.id;
+            }
+            if (!targetId) { showToast('Pick a region first (or run Auto-detect)'); return; }
+            applyColorToRegion(targetId, hex);
+        };
+        window.selectWallColor = selectWallColor;
+
+        const _origApplyCombination = applyCombination;
+        applyCombination = function(comboId, shouldScroll = false) {
+            if (photoState.mode !== 'photo' || !photoState.originalImageData) {
+                return _origApplyCombination(comboId, shouldScroll);
+            }
+            const combo = PARKING_DOOR_COMBOS.find(c => c.id === comboId);
+            if (!combo) return;
+            // Update state so the right-panel preview reflects the choice
+            state.selectedComboId = combo.id;
+            state.doorColor = { ...combo.door };
+            state.frameColor = { ...combo.frame };
+            state.isWood = combo.isWood;
+            state.finish = combo.finish;
+            state.tip = combo.tip;
+            state.rating = combo.rating;
+            state.comboName = combo.name;
+            updateVisualizer();
+            renderCombinationsGrid();
+
+            // Apply door colour to selected region (or auto-pick a door-like region)
+            let doorTargetId = photoState.selectedRegionId;
+            const selReg = photoState.regions.find(r => r.id === doorTargetId);
+            if (!selReg || selReg.rawLabel === 'wall' || selReg.rawLabel === 'sky') {
+                const door = photoState.regions.find(r => r.rawLabel === 'door');
+                if (door) doorTargetId = door.id;
+            }
+            if (doorTargetId) applyColorToRegion(doorTargetId, combo.door.hex);
+            else { showToast('Pick a region first (or run Auto-detect)'); return; }
+
+            // Also paint window/frame region with trim colour if present & unpainted
+            const winReg = photoState.regions.find(r => (r.rawLabel === 'window' || r.rawLabel === 'windowpane') && !r.color);
+            if (winReg) applyColorToRegion(winReg.id, combo.frame.hex);
+        };
+        window.applyCombination = applyCombination;
     </script>
 </body>
 </html>
